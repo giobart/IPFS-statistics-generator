@@ -12,9 +12,9 @@ import (
 )
 
 type Peer struct {
-	addr    string `json:"Addr"`
-	cid     string `json:"Peer"`
-	latency string `json:"Latency"`
+	Addr    string `json:"Addr"`
+	Cid     string `json:"Peer"`
+	Latency string `json:"Latency"`
 }
 
 // How often the script must pull the statistics
@@ -22,13 +22,13 @@ var ticker = time.NewTicker(1 * time.Second)
 
 // Url of the endpoint exposed for the ipfs swarm list api
 // used to extract the list of all the node in the current swarm
-var ipfs_swarm_list_http_url = "http://127.0.0.1:5001/api/v0/swarm/peers"
+var ipfsSwarmListHttpUrl = "http://127.0.0.1:5001/api/v0/swarm/peers"
 
 // logger
 var log = logging.MustGetLogger("go-ipfs-logger")
 
 // periodically pulls the statistics from the ipfs node
-func pull_statistics(stop <-chan bool, done chan<- bool) {
+func pullStatistics(stop <-chan bool, done chan<- bool) {
 
 	for {
 		select {
@@ -37,9 +37,9 @@ func pull_statistics(stop <-chan bool, done chan<- bool) {
 			done <- true
 			return
 		case <-ticker.C:
-			peerList := swarm_status_list()
+			peerList := swarmStatusList()
 			for id, peer := range peerList {
-				log.Info("[", id, "] - CID: [", peer.cid, "] - Addr: [", peer.addr, "]")
+				log.Info("[", id, "] - CID: [", peer.Cid, "] - Addr: [", peer.Addr, "]")
 			}
 
 		}
@@ -48,11 +48,11 @@ func pull_statistics(stop <-chan bool, done chan<- bool) {
 }
 
 // using ipfs HTTP api gets the list of the current connected peer to the swarm
-func swarm_status_list() []Peer {
+func swarmStatusList() []Peer {
 	var result = make([]Peer, 1)
 
 	//http request to ipfs api
-	resp, err := http.Get(ipfs_swarm_list_http_url)
+	resp, err := http.Get(ipfsSwarmListHttpUrl)
 	if err != nil {
 		//not connection available, retry later
 		log.Error("No available connection to ipfs:")
@@ -77,9 +77,9 @@ func swarm_status_list() []Peer {
 	for _, peer := range peer_list["Peers"].([]interface{}) {
 		currPeer := peer.(map[string]interface{})
 		p := Peer{}
-		p.addr = currPeer["Addr"].(string)
-		p.cid = currPeer["Peer"].(string)
-		p.latency = currPeer["Latency"].(string)
+		p.Addr = currPeer["Addr"].(string)
+		p.Cid = currPeer["Peer"].(string)
+		p.Latency = currPeer["Latency"].(string)
 		result = append(result, p)
 	}
 
@@ -96,7 +96,7 @@ func main() {
 
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	go pull_statistics(stop, done)
+	go pullStatistics(stop, done)
 
 	// await for sigint or sigtem to stop application from pulling statistics
 	select {
