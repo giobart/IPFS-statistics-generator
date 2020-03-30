@@ -2,11 +2,13 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/ip2location/ip2location-go"
 	"github.com/op/go-logging"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -17,6 +19,7 @@ type Peer struct {
 	Cid     string `json:"Cid"`
 	Latency string `json:"Latency"`
 	Nation  string `json:"Nation"`
+	City    string `json:"City"`
 }
 
 type Connections struct {
@@ -37,6 +40,9 @@ var log = logging.MustGetLogger("go-ipfs-logger")
 // Database
 var database = Database{}
 
+//var ip location database
+var ipdb, dbconnectionerror = ip2location.OpenDB("./IP2LOCATION-LITE-DB3.BIN")
+
 // periodically pulls the statistics from the ipfs node
 func pullStatistics(stop <-chan bool, done chan<- bool) {
 
@@ -50,11 +56,23 @@ func pullStatistics(stop <-chan bool, done chan<- bool) {
 			peerList := swarmStatusList()
 			cidList := make([]string, 0)
 			for id, peer := range peerList {
-				log.Info("[", id, "] - CID: [", peer.Cid, "] - Addr: [", peer.Addr, "] - Latency: [", peer.Latency, "]")
-				//storing peer info
-				database.dbWrite("peers", peer.Cid, peer)
-				//saving cid to cid list
-				cidList = append(cidList, peer.Cid)
+				//check if peer has a valid addr
+				if peer.Addr != "" {
+					log.Info("[", id, "] - CID: [", peer.Cid, "] - Addr: [", peer.Addr, "] - Latency: [", peer.Latency, "]")
+
+					//fetching country and city from ip4 address
+					results, err := ipdb.Get_all(strings.Split(peer.Addr, "/")[2])
+					if err == nil {
+						peer.Nation = results.Country_short
+						peer.City = results.City
+					}
+
+					//storing peer info
+					database.dbWrite("peers", peer.Cid, peer)
+
+					//saving cid to cid list
+					cidList = append(cidList, peer.Cid)
+				}
 			}
 			//storing timestamp - peer list
 			connection := Connections{
@@ -114,6 +132,11 @@ func main() {
 	// channel used to understand that function ended
 	var done = make(chan bool)
 
+	// Ip Location database
+	if dbconnectionerror != nil {
+		panic(1)
+	}
+
 	// db initialization
 	database.dbInit()
 
@@ -126,6 +149,7 @@ func main() {
 	case <-sigs:
 		stop <- true
 		<-done
+		database.dbClose()
 	}
 
 }
