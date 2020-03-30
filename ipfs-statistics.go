@@ -11,14 +11,21 @@ import (
 	"time"
 )
 
+// struct reperesenting the peer
 type Peer struct {
 	Addr    string `json:"Addr"`
-	Cid     string `json:"Peer"`
+	Cid     string `json:"Cid"`
 	Latency string `json:"Latency"`
+	Nation  string `json:"Nation"`
+}
+
+type Connections struct {
+	Timestamp string   `json:"timestamp"`
+	CidList   []string `json:"cidList"`
 }
 
 // How often the script must pull the statistics
-var ticker = time.NewTicker(1 * time.Second)
+var ticker = time.NewTicker(30 * time.Second)
 
 // Url of the endpoint exposed for the ipfs swarm list api
 // used to extract the list of all the node in the current swarm
@@ -26,6 +33,9 @@ var ipfsSwarmListHttpUrl = "http://127.0.0.1:5001/api/v0/swarm/peers"
 
 // logger
 var log = logging.MustGetLogger("go-ipfs-logger")
+
+// Database
+var database = Database{}
 
 // periodically pulls the statistics from the ipfs node
 func pullStatistics(stop <-chan bool, done chan<- bool) {
@@ -38,10 +48,20 @@ func pullStatistics(stop <-chan bool, done chan<- bool) {
 			return
 		case <-ticker.C:
 			peerList := swarmStatusList()
+			cidList := make([]string, 0)
 			for id, peer := range peerList {
-				log.Info("[", id, "] - CID: [", peer.Cid, "] - Addr: [", peer.Addr, "]")
+				log.Info("[", id, "] - CID: [", peer.Cid, "] - Addr: [", peer.Addr, "] - Latency: [", peer.Latency, "]")
+				//storing peer info
+				database.dbWrite("peers", peer.Cid, peer)
+				//saving cid to cid list
+				cidList = append(cidList, peer.Cid)
 			}
-
+			//storing timestamp - peer list
+			connection := Connections{
+				Timestamp: time.Now().Format("2006-01-02_15-04-05"),
+				CidList:   cidList,
+			}
+			database.dbWrite("connections", connection.Timestamp, connection)
 		}
 	}
 
@@ -93,6 +113,9 @@ func main() {
 	var stop = make(chan bool, 1)
 	// channel used to understand that function ended
 	var done = make(chan bool)
+
+	// db initialization
+	database.dbInit()
 
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
