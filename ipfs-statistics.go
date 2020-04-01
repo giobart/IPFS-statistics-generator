@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/ip2location/ip2location-go"
 	"github.com/op/go-logging"
 	"io/ioutil"
@@ -22,13 +23,13 @@ type Peer struct {
 	City    string `json:"City"`
 }
 
-type Connections struct {
+type Connection struct {
 	Timestamp string   `json:"timestamp"`
 	CidList   []string `json:"cidList"`
 }
 
 // How often the script must pull the statistics
-var ticker = time.NewTicker(30 * time.Second)
+var ticker = time.NewTicker(1 * time.Second)
 
 // Url of the endpoint exposed for the ipfs swarm list api
 // used to extract the list of all the node in the current swarm
@@ -42,6 +43,9 @@ var database = Database{}
 
 //var ip location database
 var ipdb, dbconnectionerror = ip2location.OpenDB("./IP2LOCATION-LITE-DB3.BIN")
+
+//date layout
+var DateLayout = "2006-01-02_15-04-05"
 
 // periodically pulls the statistics from the ipfs node
 func pullStatistics(stop <-chan bool, done chan<- bool) {
@@ -62,7 +66,9 @@ func pullStatistics(stop <-chan bool, done chan<- bool) {
 
 					//fetching country and city from ip4 address
 					results, err := ipdb.Get_all(strings.Split(peer.Addr, "/")[2])
-					if err == nil {
+					if err != nil {
+						log.Error(err)
+					} else {
 						peer.Nation = results.Country_short
 						peer.City = results.City
 					}
@@ -75,8 +81,8 @@ func pullStatistics(stop <-chan bool, done chan<- bool) {
 				}
 			}
 			//storing timestamp - peer list
-			connection := Connections{
-				Timestamp: time.Now().Format("2006-01-02_15-04-05"),
+			connection := Connection{
+				Timestamp: time.Now().Format(DateLayout),
 				CidList:   cidList,
 			}
 			database.dbWrite("connections", connection.Timestamp, connection)
@@ -132,24 +138,44 @@ func main() {
 	// channel used to understand that function ended
 	var done = make(chan bool)
 
-	// Ip Location database
-	if dbconnectionerror != nil {
-		panic(1)
-	}
-
 	// db initialization
 	database.dbInit()
 
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	print(".-^-.-* Welcome to GO IPFS Analyzer *-.-^-. \n")
+	print("digit 1 - to start analyzing your ipfs node \n")
+	print("digit 2 - to plot collected statistics \n")
+	print("Ctrl+c in any moment to quit the program \n")
 
-	go pullStatistics(stop, done)
+	var digit int
+	_, err := fmt.Scanf("%d", &digit)
+	if err != nil {
+		log.Error(err)
+		panic(1)
+	}
 
-	// await for sigint or sigtem to stop application from pulling statistics
-	select {
-	case <-sigs:
-		stop <- true
-		<-done
-		database.dbClose()
+	switch digit {
+	//start pulling statistics from ipfs
+	case 1:
+		// Ip Location database
+		if dbconnectionerror != nil {
+			panic(1)
+		}
+
+		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+		go pullStatistics(stop, done)
+
+		// await for sigint or sigtem to stop application from pulling statistics
+		select {
+		case <-sigs:
+			stop <- true
+			<-done
+			database.dbClose()
+		}
+	//plot graphs from the previous pulled statistics
+	case 2:
+		plotStatistics()
+	default:
+		print("#### Use a correct digit ####")
 	}
 
 }
