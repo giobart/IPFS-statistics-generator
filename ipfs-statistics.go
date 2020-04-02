@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/giobart/IPFS-statistics-generator/lib"
 	"github.com/ip2location/ip2location-go"
 	"github.com/op/go-logging"
@@ -16,7 +15,10 @@ import (
 )
 
 // How often the script must pull the statistics
-var ticker = time.NewTicker(1 * time.Second)
+var ticker = time.NewTicker(10 * time.Second)
+
+// How often the script must plot the statistics
+var plotTicker = time.NewTicker(30 * time.Minute)
 
 // Url of the endpoint exposed for the ipfs swarm list api
 // used to extract the list of all the node in the current swarm
@@ -29,12 +31,15 @@ var log = logging.MustGetLogger("go-ipfs-logger")
 var database = lib.Database{}
 
 //var ip location database
-var ipdb, dbconnectionerror = ip2location.OpenDB("./IP2LOCATION-LITE-DB3.BIN")
+var ip42locdb, dbconnectionerroripv4 = ip2location.OpenDB("./IPV4-IP2LOCATION-LITE-DB3.BIN")
+
+//var ip location database
+var ip62locdb, dbconnectionerroripv6 = ip2location.OpenDB("./IPV6-IP2LOCATION-LITE-DB3.IPV6.BIN")
 
 //date layout
 var DateLayout = "2006-01-02_15-04-05"
 
-// periodically pulls the statistics from the ipfs node
+/* Eevery n seconds -> pulls the statistics from the ipfs node. n="ticker" time */
 func pullStatistics(stop <-chan bool, done chan<- bool) {
 
 	for {
@@ -44,21 +49,18 @@ func pullStatistics(stop <-chan bool, done chan<- bool) {
 			done <- true
 			return
 		case <-ticker.C:
+
+			// collect peers from ipfs node
 			peerList := swarmStatusList()
 			cidList := make([]string, 0)
+
 			for id, peer := range peerList {
 				//check if peer has a valid addr
 				if peer.Addr != "" {
 					log.Info("[", id, "] - CID: [", peer.Cid, "] - Addr: [", peer.Addr, "] - Latency: [", peer.Latency, "]")
 
-					//fetching country and city from ip4 address
-					results, err := ipdb.Get_all(strings.Split(peer.Addr, "/")[2])
-					if err != nil {
-						log.Error(err)
-					} else {
-						peer.Nation = results.Country_short
-						peer.City = results.City
-					}
+					// setting peer location
+					setPeerCity(&peer)
 
 					//storing peer info
 					database.DbWrite("peers", peer.Cid, peer)
@@ -78,7 +80,49 @@ func pullStatistics(stop <-chan bool, done chan<- bool) {
 
 }
 
-// using ipfs HTTP api gets the list of the current connected peer to the swarm
+/* Given a peer  -> set to the Peer the City and the Country from his ip address */
+func setPeerCity(peer *lib.Peer) {
+
+	// parsing multiaddress components
+	connectionString := strings.Split(peer.Addr, "/")
+	ipVersion := connectionString[1]
+	ipAddr := connectionString[2]
+
+	var locdb *ip2location.DB
+
+	if ipVersion == "ip4" {
+		locdb = ip42locdb
+	} else {
+		locdb = ip62locdb
+	}
+
+	//fetching country and city from ipv4/ipv6 address db
+	results, err := locdb.Get_all(ipAddr)
+	if err != nil {
+		log.Error(err)
+	} else {
+		peer.Nation = results.Country_short
+		peer.City = results.City
+	}
+
+}
+
+/* Every n seconds -> generate a plot of the current collected statistics. n= plotTicker seconds */
+func plotStatistics(stop <-chan bool, done chan<- bool) {
+	for {
+		select {
+		case <-plotTicker.C:
+			//plot graphs from the previous pulled statistics
+			lib.PlotStatistics(database)
+		case <-stop:
+			log.Info("## Terminated ##")
+			done <- true
+			return
+		}
+	}
+}
+
+/* using ipfs HTTP api -> gets the list of the current connected peer to the swarm */
 func swarmStatusList() []lib.Peer {
 	var result = make([]lib.Peer, 1)
 
@@ -129,40 +173,33 @@ func main() {
 	database.DbInit()
 
 	print(".-^-.-* Welcome to GO IPFS Analyzer *-.-^-. \n")
-	print("digit 1 - to start analyzing your ipfs node \n")
-	print("digit 2 - to plot collected statistics \n")
 	print("Ctrl+c in any moment to quit the program \n")
+	time.Sleep(time.Second * 3)
 
-	var digit int
-	_, err := fmt.Scanf("%d", &digit)
-	if err != nil {
-		log.Error(err)
+	// If Ip Location DB not detected then close program
+	if dbconnectionerroripv4 != nil || dbconnectionerroripv6 != nil {
 		panic(1)
 	}
 
-	switch digit {
-	//start pulling statistics from ipfs
-	case 1:
-		// Ip Location database
-		if dbconnectionerror != nil {
-			panic(1)
-		}
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-		go pullStatistics(stop, done)
+	// start pulling and plotting statistics
+	go pullStatistics(stop, done)
+	go plotStatistics(stop, done)
 
-		// await for sigint or sigtem to stop application from pulling statistics
-		select {
-		case <-sigs:
-			stop <- true
-			<-done
-			database.DbClose()
-		}
-	//plot graphs from the previous pulled statistics
-	case 2:
-		lib.PlotStatistics(database)
-	default:
-		print("#### Use a correct digit ####")
+	// await for sigint or sigtem to stop application from pulling statistics
+	select {
+	//case keyboard interrupt
+	case <-sigs:
+		//sending 2 stop token for both pull and plot statistic function
+		stop <- true
+		stop <- true
+		//waiting for both functions to end
+		<-done
+		<-done
+		database.DbClose()
 	}
+
+	print(".-^-.-* Bye Bye *-.-^-. ")
 
 }
