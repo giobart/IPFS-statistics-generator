@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/giobart/IPFS-statistics-generator/lib"
 	"github.com/ip2location/ip2location-go"
 	"github.com/op/go-logging"
 	"io/ioutil"
@@ -13,20 +14,6 @@ import (
 	"syscall"
 	"time"
 )
-
-// struct reperesenting the peer
-type Peer struct {
-	Addr    string `json:"Addr"`
-	Cid     string `json:"Cid"`
-	Latency string `json:"Latency"`
-	Nation  string `json:"Nation"`
-	City    string `json:"City"`
-}
-
-type Connection struct {
-	Timestamp string   `json:"timestamp"`
-	CidList   []string `json:"cidList"`
-}
 
 // How often the script must pull the statistics
 var ticker = time.NewTicker(1 * time.Second)
@@ -39,7 +26,7 @@ var ipfsSwarmListHttpUrl = "http://127.0.0.1:5001/api/v0/swarm/peers"
 var log = logging.MustGetLogger("go-ipfs-logger")
 
 // Database
-var database = Database{}
+var database = lib.Database{}
 
 //var ip location database
 var ipdb, dbconnectionerror = ip2location.OpenDB("./IP2LOCATION-LITE-DB3.BIN")
@@ -74,26 +61,26 @@ func pullStatistics(stop <-chan bool, done chan<- bool) {
 					}
 
 					//storing peer info
-					database.dbWrite("peers", peer.Cid, peer)
+					database.DbWrite("peers", peer.Cid, peer)
 
 					//saving cid to cid list
 					cidList = append(cidList, peer.Cid)
 				}
 			}
 			//storing timestamp - peer list
-			connection := Connection{
+			connection := lib.Connection{
 				Timestamp: time.Now().Format(DateLayout),
 				CidList:   cidList,
 			}
-			database.dbWrite("connections", connection.Timestamp, connection)
+			database.DbWrite("connections", connection.Timestamp, connection)
 		}
 	}
 
 }
 
 // using ipfs HTTP api gets the list of the current connected peer to the swarm
-func swarmStatusList() []Peer {
-	var result = make([]Peer, 1)
+func swarmStatusList() []lib.Peer {
+	var result = make([]lib.Peer, 1)
 
 	//http request to ipfs api
 	resp, err := http.Get(ipfsSwarmListHttpUrl)
@@ -120,7 +107,7 @@ func swarmStatusList() []Peer {
 
 	for _, peer := range peer_list["Peers"].([]interface{}) {
 		currPeer := peer.(map[string]interface{})
-		p := Peer{}
+		p := lib.Peer{}
 		p.Addr = currPeer["Addr"].(string)
 		p.Cid = currPeer["Peer"].(string)
 		p.Latency = currPeer["Latency"].(string)
@@ -139,7 +126,7 @@ func main() {
 	var done = make(chan bool)
 
 	// db initialization
-	database.dbInit()
+	database.DbInit()
 
 	print(".-^-.-* Welcome to GO IPFS Analyzer *-.-^-. \n")
 	print("digit 1 - to start analyzing your ipfs node \n")
@@ -169,11 +156,11 @@ func main() {
 		case <-sigs:
 			stop <- true
 			<-done
-			database.dbClose()
+			database.DbClose()
 		}
 	//plot graphs from the previous pulled statistics
 	case 2:
-		plotStatistics()
+		lib.PlotStatistics(database)
 	default:
 		print("#### Use a correct digit ####")
 	}

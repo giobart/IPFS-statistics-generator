@@ -1,9 +1,10 @@
-package main
+package lib
 
 import (
 	"encoding/json"
 	"github.com/mitchellh/mapstructure"
 	"github.com/nanobox-io/golang-scribble"
+	"github.com/op/go-logging"
 )
 
 const (
@@ -12,6 +13,24 @@ const (
 	DReadAll   = "readall"
 	DBPosition = ".database"
 )
+
+// struct reperesenting the peer
+type Peer struct {
+	Addr    string `json:"Addr"`
+	Cid     string `json:"Cid"`
+	Latency string `json:"Latency"`
+	Nation  string `json:"Nation"`
+	City    string `json:"City"`
+}
+
+// struct representing a connection data in a specific time
+type Connection struct {
+	Timestamp string   `json:"timestamp"`
+	CidList   []string `json:"cidList"`
+}
+
+// logger
+var log = logging.MustGetLogger("go-ipfs-logger")
 
 //struct representing the query to the database
 type Query struct {
@@ -29,7 +48,7 @@ type Database struct {
 	close  chan bool
 }
 
-func (db *Database) dbInit() {
+func (db *Database) DbInit() {
 
 	db.result = make(chan interface{}, 1)
 	db.query = make(chan Query, 1)
@@ -93,7 +112,7 @@ func (db *Database) dbInit() {
 
 }
 
-func (db *Database) dbClose() {
+func (db *Database) DbClose() {
 	db.close <- true
 }
 
@@ -114,7 +133,7 @@ func (db *Database) dbRead(collection string, key string) map[string]interface{}
 	}
 }
 
-func (db *Database) dbWrite(collection string, key string, object interface{}) {
+func (db *Database) DbWrite(collection string, key string, object interface{}) {
 	q := Query{
 		operation:  DWrite,
 		collection: collection,
@@ -147,7 +166,7 @@ func (db *Database) dbReadAll(collection string) []map[string]interface{} {
 func test_database() {
 
 	var database = Database{}
-	database.dbInit()
+	database.DbInit()
 
 	//write into the db
 	peer := Peer{
@@ -156,8 +175,8 @@ func test_database() {
 		Latency: "Infinite",
 	}
 
-	database.dbWrite("peers", "1", peer)
-	database.dbWrite("peers", "2", peer)
+	database.DbWrite("peers", "1", peer)
+	database.DbWrite("peers", "2", peer)
 
 	resultpeer1 := Peer{}
 	result1 := database.dbRead("peers", "1")

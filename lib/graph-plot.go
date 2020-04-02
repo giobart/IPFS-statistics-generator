@@ -1,4 +1,4 @@
-package main
+package lib
 
 import (
 	"github.com/mitchellh/mapstructure"
@@ -10,6 +10,9 @@ import (
 )
 
 type Connections []Connection
+
+//date layout
+var DateLayout = "2006-01-02_15-04-05"
 
 func (c Connections) Len() int {
 	return len(c)
@@ -59,7 +62,7 @@ func generateNationsChart(peers []Peer) {
 		Bars:     vals,
 	}
 
-	f, _ := os.Create("nations.png")
+	f, _ := os.Create("graphs/nations.png")
 	defer f.Close()
 	_ = graph.Render(chart.PNG, f)
 
@@ -90,6 +93,7 @@ func generateConnectionChart(connectionList []Connection) {
 		Name: "SPY",
 		Style: chart.Style{
 			StrokeColor: chart.GetDefaultColor(0),
+			Show:        true,
 		},
 		XValues: xv,
 		YValues: yv,
@@ -100,6 +104,7 @@ func generateConnectionChart(connectionList []Connection) {
 		Style: chart.Style{
 			StrokeColor:     drawing.ColorRed,
 			StrokeDashArray: []float64{5.0, 5.0},
+			Show:            true,
 		},
 		InnerSeries: priceSeries,
 	}
@@ -109,6 +114,7 @@ func generateConnectionChart(connectionList []Connection) {
 		Style: chart.Style{
 			StrokeColor: drawing.ColorFromHex("efefef"),
 			FillColor:   drawing.ColorFromHex("efefef").WithAlpha(64),
+			Show:        true,
 		},
 		InnerSeries: priceSeries,
 	}
@@ -130,7 +136,7 @@ func generateConnectionChart(connectionList []Connection) {
 		},
 	}
 
-	f, _ := os.Create("connection-time.png")
+	f, _ := os.Create("graphs/connection-time.png")
 	defer f.Close()
 	err := graph.Render(chart.PNG, f)
 	if err != nil {
@@ -138,7 +144,7 @@ func generateConnectionChart(connectionList []Connection) {
 	}
 }
 
-func plotStatistics() {
+func PlotStatistics(database Database) {
 	//pushing in memory peer list
 	log.Info("Extracting peers from DB")
 	list := database.dbReadAll("peers")
