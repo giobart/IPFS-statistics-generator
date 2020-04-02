@@ -22,7 +22,7 @@ var plotTicker = time.NewTicker(30 * time.Minute)
 
 // Url of the endpoint exposed for the ipfs swarm list api
 // used to extract the list of all the node in the current swarm
-var ipfsSwarmListHttpUrl = "http://127.0.0.1:5001/api/v0/swarm/peers"
+var ipfsSwarmListHttpUrl = "http://127.0.0.1:5001/api/v0/swarm/peers?verbose=true"
 
 // logger
 var log = logging.MustGetLogger("go-ipfs-logger")
@@ -44,10 +44,6 @@ func pullStatistics(stop <-chan bool, done chan<- bool) {
 
 	for {
 		select {
-		case <-stop:
-			log.Info("## Terminated ##")
-			done <- true
-			return
 		case <-ticker.C:
 
 			// collect peers from ipfs node
@@ -75,6 +71,10 @@ func pullStatistics(stop <-chan bool, done chan<- bool) {
 				CidList:   cidList,
 			}
 			database.DbWrite("connections", connection.Timestamp, connection)
+		case <-stop:
+			log.Info("## Stats pull Terminated ##")
+			done <- true
+			return
 		}
 	}
 
@@ -115,7 +115,7 @@ func plotStatistics(stop <-chan bool, done chan<- bool) {
 			//plot graphs from the previous pulled statistics
 			lib.PlotStatistics(database)
 		case <-stop:
-			log.Info("## Terminated ##")
+			log.Info("## Plot Terminated ##")
 			done <- true
 			return
 		}
