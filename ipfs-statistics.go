@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"github.com/giobart/IPFS-statistics-generator/lib"
 	"github.com/ip2location/ip2location-go"
+	ma "github.com/multiformats/go-multiaddr"
 	"github.com/op/go-logging"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 )
@@ -83,17 +83,28 @@ func pullStatistics(stop <-chan bool, done chan<- bool) {
 /* Given a peer  -> set to the Peer the City and the Country from his ip address */
 func setPeerCity(peer *lib.Peer) {
 
-	// parsing multiaddress components
-	connectionString := strings.Split(peer.Addr, "/")
-	ipVersion := connectionString[1]
-	ipAddr := connectionString[2]
-
 	var locdb *ip2location.DB
+	ipAddr := ""
 
-	if ipVersion == "ip4" {
-		locdb = ip42locdb
-	} else {
-		locdb = ip62locdb
+	// construct multiaddr from a string (err signals parse failure)
+	multiaddr, err := ma.NewMultiaddr(peer.Addr)
+	if err != nil {
+		return
+	}
+
+	//swapping db between ipv6 or ipv4 to perform geolocation query
+	for _, v := range multiaddr.Protocols() {
+		if v.Code == ma.P_IP4 {
+			locdb = ip42locdb
+			ipAddr, _ = multiaddr.ValueForProtocol(v.Code)
+			continue
+		}
+		if v.Code == ma.P_IP6 {
+			locdb = ip62locdb
+			ipAddr, _ = multiaddr.ValueForProtocol(v.Code)
+			continue
+		}
+
 	}
 
 	//fetching country and city from ipv4/ipv6 address db
