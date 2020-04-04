@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/giobart/IPFS-statistics-generator/lib"
-	"github.com/ipfs/go-cid"
 	"github.com/op/go-logging"
 	"os"
 	"os/signal"
@@ -17,7 +16,7 @@ const (
 )
 
 // How often the script must pull the statistics
-var ticker = time.NewTicker(10 * time.Second)
+var statisticsTicker = time.NewTicker(10 * time.Second)
 
 // How often the script must plot the statistics
 var plotTicker = time.NewTicker(30 * time.Minute)
@@ -31,12 +30,12 @@ var database = lib.Database{}
 // peer geolocalization class, used to set the peer location
 var peerGolocalization lib.PeerGeolocation
 
-/* Eevery n seconds -> pulls the statistics from the ipfs node. n="ticker" time */
+/* Eevery n seconds -> pulls the statistics from the ipfs node. n="statisticsTicker" time */
 func pullStatistics(stop <-chan bool, done chan<- bool) {
 
 	for {
 		select {
-		case <-ticker.C:
+		case <-statisticsTicker.C:
 
 			// collect peers from ipfs node
 			peerList := lib.SwarmStatusList()
@@ -47,14 +46,6 @@ func pullStatistics(stop <-chan bool, done chan<- bool) {
 				if peer.Addr != "" {
 					log.Info("[", id, "] - CID: [", peer.Cid, "] - Addr: [", peer.Addr, "] - Latency: [", peer.Latency, "]")
 
-					c, err := cid.Decode(peer.Cid)
-					if err != nil {
-						log.Error("Error v1")
-					}
-					if c.Version() == 1 {
-						log.Info("#### v1 ####")
-					}
-					log.Info("Got Cid: ", c.Bytes())
 					// setting peer location
 					peerGolocalization.SetPeerCity(&peer)
 
