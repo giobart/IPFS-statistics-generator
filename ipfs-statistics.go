@@ -1,14 +1,11 @@
 package main
 
 import (
-	"encoding/json"
 	"github.com/giobart/IPFS-statistics-generator/lib"
 	"github.com/ip2location/ip2location-go"
-	cid "github.com/ipfs/go-cid"
+	"github.com/ipfs/go-cid"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/op/go-logging"
-	"io/ioutil"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -20,10 +17,6 @@ var ticker = time.NewTicker(10 * time.Second)
 
 // How often the script must plot the statistics
 var plotTicker = time.NewTicker(30 * time.Minute)
-
-// Url of the endpoint exposed for the ipfs swarm list api
-// used to extract the list of all the node in the current swarm
-var ipfsSwarmListHttpUrl = "http://127.0.0.1:5001/api/v0/swarm/peers?verbose=true"
 
 // logger
 var log = logging.MustGetLogger("go-ipfs-logger")
@@ -48,7 +41,7 @@ func pullStatistics(stop <-chan bool, done chan<- bool) {
 		case <-ticker.C:
 
 			// collect peers from ipfs node
-			peerList := swarmStatusList()
+			peerList := lib.SwarmStatusList()
 			cidList := make([]string, 0)
 
 			for id, peer := range peerList {
@@ -142,45 +135,6 @@ func plotStatistics(stop <-chan bool, done chan<- bool) {
 			return
 		}
 	}
-}
-
-/* using ipfs HTTP api -> gets the list of the current connected peer to the swarm */
-func swarmStatusList() []lib.Peer {
-	var result = make([]lib.Peer, 1)
-
-	//http request to ipfs api
-	resp, err := http.Get(ipfsSwarmListHttpUrl)
-	if err != nil {
-		//not connection available, retry later
-		log.Error("No available connection to ipfs:")
-		log.Error(err)
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		//error reading body content of the request
-		log.Error("Unable to read body content of swarm status list: ")
-		log.Error(err)
-	}
-
-	var peer_list map[string]interface{}
-
-	jsonErr := json.Unmarshal(body, &peer_list)
-	if jsonErr != nil {
-		//error parsing the json response
-		log.Error(jsonErr)
-	}
-
-	for _, peer := range peer_list["Peers"].([]interface{}) {
-		currPeer := peer.(map[string]interface{})
-		p := lib.Peer{}
-		p.Addr = currPeer["Addr"].(string)
-		p.Cid = currPeer["Peer"].(string)
-		p.Latency = currPeer["Latency"].(string)
-		result = append(result, p)
-	}
-
-	return result
 }
 
 func main() {
