@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/giobart/IPFS-statistics-generator/lib"
 	"github.com/ip2location/ip2location-go"
+	cid "github.com/ipfs/go-cid"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/op/go-logging"
 	"io/ioutil"
@@ -55,6 +56,14 @@ func pullStatistics(stop <-chan bool, done chan<- bool) {
 				if peer.Addr != "" {
 					log.Info("[", id, "] - CID: [", peer.Cid, "] - Addr: [", peer.Addr, "] - Latency: [", peer.Latency, "]")
 
+					c, err := cid.Decode(peer.Cid)
+					if err != nil {
+						log.Error("Error v1")
+					}
+					if c.Version() == 1 {
+						log.Info("#### v1 ####")
+					}
+					log.Info("Got Cid: ", c.Bytes())
 					// setting peer location
 					setPeerCity(&peer)
 
@@ -108,12 +117,14 @@ func setPeerCity(peer *lib.Peer) {
 	}
 
 	//fetching country and city from ipv4/ipv6 address db
-	results, err := locdb.Get_all(ipAddr)
-	if err != nil {
-		log.Error(err)
-	} else {
-		peer.Nation = results.Country_short
-		peer.City = results.City
+	if locdb != nil {
+		results, err := locdb.Get_all(ipAddr)
+		if err != nil {
+			log.Error(err)
+		} else {
+			peer.Nation = results.Country_short
+			peer.City = results.City
+		}
 	}
 
 }
