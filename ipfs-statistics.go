@@ -2,14 +2,18 @@ package main
 
 import (
 	"github.com/giobart/IPFS-statistics-generator/lib"
-	"github.com/ip2location/ip2location-go"
 	"github.com/ipfs/go-cid"
-	ma "github.com/multiformats/go-multiaddr"
 	"github.com/op/go-logging"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+)
+
+const (
+	DateLayout = "2006-01-02_15-04-05"
+	ip42locdb  = "./IPV4-IP2LOCATION-LITE-DB3.BIN"
+	ip6dbloc   = "./IPV6-IP2LOCATION-LITE-DB3.IPV6.BIN"
 )
 
 // How often the script must pull the statistics
@@ -24,14 +28,8 @@ var log = logging.MustGetLogger("go-ipfs-logger")
 // Database
 var database = lib.Database{}
 
-//var ip location database
-var ip42locdb, dbconnectionerroripv4 = ip2location.OpenDB("./IPV4-IP2LOCATION-LITE-DB3.BIN")
-
-//var ip location database
-var ip62locdb, dbconnectionerroripv6 = ip2location.OpenDB("./IPV6-IP2LOCATION-LITE-DB3.IPV6.BIN")
-
-//date layout
-var DateLayout = "2006-01-02_15-04-05"
+// peer geolocalization class, used to set the peer location
+var peerGolocalization lib.PeerGeolocation
 
 /* Eevery n seconds -> pulls the statistics from the ipfs node. n="ticker" time */
 func pullStatistics(stop <-chan bool, done chan<- bool) {
@@ -58,7 +56,7 @@ func pullStatistics(stop <-chan bool, done chan<- bool) {
 					}
 					log.Info("Got Cid: ", c.Bytes())
 					// setting peer location
-					setPeerCity(&peer)
+					peerGolocalization.SetPeerCity(&peer)
 
 					//storing peer info
 					database.DbWrite("peers", peer.Cid, peer)
@@ -77,46 +75,6 @@ func pullStatistics(stop <-chan bool, done chan<- bool) {
 			log.Info("## Stats pull Terminated ##")
 			done <- true
 			return
-		}
-	}
-
-}
-
-/* Given a peer  -> set to the Peer the City and the Country from his ip address */
-func setPeerCity(peer *lib.Peer) {
-
-	var locdb *ip2location.DB
-	ipAddr := ""
-
-	// construct multiaddr from a string (err signals parse failure)
-	multiaddr, err := ma.NewMultiaddr(peer.Addr)
-	if err != nil {
-		return
-	}
-
-	//swapping db between ipv6 or ipv4 to perform geolocation query
-	for _, v := range multiaddr.Protocols() {
-		if v.Code == ma.P_IP4 {
-			locdb = ip42locdb
-			ipAddr, _ = multiaddr.ValueForProtocol(v.Code)
-			continue
-		}
-		if v.Code == ma.P_IP6 {
-			locdb = ip62locdb
-			ipAddr, _ = multiaddr.ValueForProtocol(v.Code)
-			continue
-		}
-
-	}
-
-	//fetching country and city from ipv4/ipv6 address db
-	if locdb != nil {
-		results, err := locdb.Get_all(ipAddr)
-		if err != nil {
-			log.Error(err)
-		} else {
-			peer.Nation = results.Country_short
-			peer.City = results.City
 		}
 	}
 
@@ -145,17 +103,18 @@ func main() {
 	// channel used to understand that function ended
 	var done = make(chan bool)
 
+	err := peerGolocalization.Init(ip42locdb, ip6dbloc)
+	if err != nil {
+		log.Error("No localization db connected")
+		panic(1)
+	}
+
 	// db initialization
 	database.DbInit()
 
 	print(".-^-.-* Welcome to GO IPFS Analyzer *-.-^-. \n")
 	print("Ctrl+c in any moment to quit the program \n")
 	time.Sleep(time.Second * 3)
-
-	// If Ip Location DB not detected then close program
-	if dbconnectionerroripv4 != nil || dbconnectionerroripv6 != nil {
-		panic(1)
-	}
 
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
