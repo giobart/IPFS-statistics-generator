@@ -18,9 +18,6 @@ const (
 // How often the script must pull the statistics
 var statisticsTicker = time.NewTicker(10 * time.Second)
 
-// How often the script must plot the statistics
-var plotTicker = time.NewTicker(30 * time.Minute)
-
 // logger
 var log = logging.MustGetLogger("go-ipfs-logger")
 
@@ -71,21 +68,6 @@ func pullStatistics(stop <-chan bool, done chan<- bool) {
 
 }
 
-/* Every n seconds -> generate a plot of the current collected statistics. n= plotTicker seconds */
-func plotStatistics(stop <-chan bool, done chan<- bool) {
-	for {
-		select {
-		case <-plotTicker.C:
-			//plot graphs from the previous pulled statistics
-			lib.PlotStatistics(database)
-		case <-stop:
-			log.Info("## Plot Terminated ##")
-			done <- true
-			return
-		}
-	}
-}
-
 func main() {
 	// channel for signal handling
 	var sigs = make(chan os.Signal, 1)
@@ -111,7 +93,10 @@ func main() {
 
 	// start pulling and plotting statistics
 	go pullStatistics(stop, done)
-	go plotStatistics(stop, done)
+
+	// serving statistics graphs
+	lib.SetGraphDb(database)
+	go lib.GraphsServe(":8081")
 
 	// await for sigint or sigtem to stop application from pulling statistics
 	select {
@@ -119,9 +104,7 @@ func main() {
 	case <-sigs:
 		//sending 2 stop token for both pull and plot statistic function
 		stop <- true
-		stop <- true
 		//waiting for both functions to end
-		<-done
 		<-done
 		database.DbClose()
 	}

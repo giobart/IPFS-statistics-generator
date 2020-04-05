@@ -76,3 +76,7 @@ func GetMyCid() string {
 
 	return peerInfo["ID"].(string)
 }
+
+func DhtQuery(cid string) {
+
+}
