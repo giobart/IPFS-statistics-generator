@@ -41,7 +41,7 @@ func peerNationPie(peerMap map[string]interface{}, totPeer string) *charts.Pie {
 
 	pie := charts.NewPie()
 	pie.SetGlobalOptions(charts.TitleOpts{Title: "Peer By Nation", Subtitle: "peers: " + totPeer}, charts.LegendOpts{Top: "600px"})
-	pie.Add("pie", peerMap,
+	pie.Add("Peer nation", peerMap,
 		charts.LabelTextOpts{Show: true, Formatter: "{b}: {c}"},
 		charts.PieOpts{Radius: []string{"40%", "80%"}},
 	)
