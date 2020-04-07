@@ -54,31 +54,46 @@ func peerNationMap(peerMap map[string]float32, maxPeer float32) *charts.Map {
 	mc := charts.NewMap("world")
 	mc.SetGlobalOptions(
 		charts.TitleOpts{Title: "Peer Visual Map"},
-		charts.VisualMapOpts{Calculable: true, Max: maxPeer},
+		charts.VisualMapOpts{Calculable: true, Max: maxPeer + 10},
 	)
 	mc.Add("map", peerMap)
 	return mc
 }
 
-func peerConnectionsGraph(connections Connections) *charts.Line {
+func peerConnectionsGraph(connections Connections, peers map[string]Peer) *charts.Line {
 
 	//sort by date
 	sort.Sort(connections)
 
 	var stringDates = make([]string, 0)
 	var peerList = make([]float32, 0)
-	var max = 0
+	var peerChina = make([]float32, 0)
+	var peerAmerica = make([]float32, 0)
+
 	for _, v := range connections {
 		stringDates = append(stringDates, v.Timestamp)
 		peerList = append(peerList, float32(len(v.CidList)))
-		if len(v.CidList) > max {
-			max = len(v.CidList)
+		countAmerica := 0
+		countChina := 0
+		//checking chinese and american peers
+		for _, cid := range v.CidList {
+			nation := peers[cid].Nation
+			if nation == "United States" {
+				countAmerica++
+			}
+			if nation == "China" {
+				countChina++
+			}
 		}
+		peerChina = append(peerChina, float32(countChina))
+		peerAmerica = append(peerAmerica, float32(countAmerica))
 	}
 
 	kline := charts.NewLine()
 
-	kline.AddXAxis(stringDates).AddYAxis("connections", peerList)
+	kline.AddXAxis(stringDates).AddYAxis("Total Connections", peerList)
+	kline.AddXAxis(stringDates).AddYAxis("From China", peerChina)
+	kline.AddXAxis(stringDates).AddYAxis("From America", peerAmerica)
 	kline.SetGlobalOptions(
 		charts.TitleOpts{Title: "Peer Connections "},
 		charts.XAxisOpts{SplitNumber: 20},
@@ -96,7 +111,7 @@ func pieHandler(w http.ResponseWriter, _ *http.Request) {
 
 	log.Info("Extracting peers from DB")
 	list := database.dbReadAll("peers")
-	peerList := make([]Peer, 0)
+	peerList := make(map[string]Peer, 0)
 	peerMap := make(map[string]interface{})
 	peerMapFloat := make(map[string]float32)
 	maxPeer := float32(0)
@@ -113,7 +128,12 @@ func pieHandler(w http.ResponseWriter, _ *http.Request) {
 				if peer.Nation == "Russian Federation" {
 					peer.Nation = "Russia"
 				}
-				peerList = append(peerList, peer)
+				if peer.Nation == "United Kingdom of Great Britain and Northern Ireland" {
+					peer.Nation = "United Kingdom"
+				}
+				if len(peer.Nation) >= 2 {
+					peerList[peer.Cid] = peer
+				}
 			}
 		}
 	}
@@ -146,17 +166,17 @@ func pieHandler(w http.ResponseWriter, _ *http.Request) {
 		}
 	}
 
-	page := charts.NewPage(charts.RouterOpts{URL: "http://127.0.0.1:8080" + "/stats", Text: "Statistics"})
+	page := charts.NewPage()
 	page.Add(
 		peerNationPie(peerMap, strconv.Itoa(len(list))),
 		peerNationMap(peerMapFloat, maxPeer),
-		peerConnectionsGraph(connectionList),
+		peerConnectionsGraph(connectionList, peerList),
 	)
 	f, err := os.Create("stats.html")
 	if err != nil {
 		log.Error(err)
 	}
-	page.Render(w, f)
+	_ = page.Render(w, f)
 }
 
 func GraphsServe(port string) {

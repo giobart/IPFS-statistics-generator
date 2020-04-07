@@ -16,7 +16,7 @@ const (
 )
 
 // How often the script must pull the statistics
-var statisticsTicker = time.NewTicker(10 * time.Second)
+var statisticsTicker = time.NewTicker(5 * time.Minute)
 
 // logger
 var log = logging.MustGetLogger("go-ipfs-logger")
