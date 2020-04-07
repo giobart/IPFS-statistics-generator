@@ -56,7 +56,19 @@ func peerNationMap(peerMap map[string]float32, maxPeer float32) *charts.Map {
 		charts.TitleOpts{Title: "Peer Visual Map"},
 		charts.VisualMapOpts{Calculable: true, Max: maxPeer + 10},
 	)
-	mc.Add("map", peerMap)
+	mc.Add("Peer distribution", peerMap)
+	return mc
+}
+
+func avgLatencyMap(peerLatencyMap map[string]float32, maxPeer float32) *charts.Map {
+
+	mc := charts.NewMap("world")
+	mc.SetGlobalOptions(
+		charts.TitleOpts{Title: "Peer Latency Average (ms)"},
+		charts.VisualMapOpts{Calculable: true, Max: maxPeer + 10},
+		charts.InitOpts{Theme: charts.ThemeType.Infographic},
+	)
+	mc.Add("Latency (ms)", peerLatencyMap)
 	return mc
 }
 
@@ -114,7 +126,10 @@ func pieHandler(w http.ResponseWriter, _ *http.Request) {
 	peerList := make(map[string]Peer, 0)
 	peerMap := make(map[string]interface{})
 	peerMapFloat := make(map[string]float32)
+	peerAvgLatency := make(map[string]float32)
 	maxPeer := float32(0)
+	maxLatency := float32(0)
+	maxLatencyCity := ""
 
 	for _, el := range list {
 		if el != nil {
@@ -138,16 +153,45 @@ func pieHandler(w http.ResponseWriter, _ *http.Request) {
 		}
 	}
 
+	//generation of all peer map structure needed
 	for _, p := range peerList {
 		if content, present := peerMap[p.Nation]; present {
-			peerMap[p.Nation] = content.(float32) + float32(1)
-			peerMapFloat[p.Nation] = content.(float32) + float32(1)
+			oldPeerNum := content.(float32)
+			newPeerNum := oldPeerNum + float32(1)
+			peerMap[p.Nation] = newPeerNum
+			peerMapFloat[p.Nation] = newPeerNum
+
 			if content.(float32) > maxPeer {
 				maxPeer = content.(float32)
 			}
+
+			//calculating average latency
+			if len(p.Latency) > 2 {
+				multiplier := 1
+				val, err := strconv.ParseFloat(p.Latency[:len(p.Latency)-2], 32)
+				//if time is in seconds and not in milliseconds, multiply by 1000
+				if p.Latency[len(p.Latency)-2:] != "ms" {
+					multiplier = 1000
+				}
+				if err == nil {
+					val = float64(multiplier) * val
+					//updating actual average latency
+					peerAvgLatency[p.Nation] = (peerAvgLatency[p.Nation]*oldPeerNum + float32(val)) / newPeerNum
+					if peerAvgLatency[p.Nation] > maxLatency || maxLatencyCity == p.Nation {
+						maxLatency = peerAvgLatency[p.Nation]
+						maxLatencyCity = p.Nation
+					}
+				}
+			}
+
 		} else {
 			peerMap[p.Nation] = float32(1.0)
 			peerMapFloat[p.Nation] = float32(1.0)
+			val, err := strconv.ParseFloat(p.Latency, 32)
+			if err == nil {
+				peerAvgLatency[p.Nation] = float32(val)
+			}
+
 		}
 	}
 
@@ -170,6 +214,7 @@ func pieHandler(w http.ResponseWriter, _ *http.Request) {
 	page.Add(
 		peerNationPie(peerMap, strconv.Itoa(len(list))),
 		peerNationMap(peerMapFloat, maxPeer),
+		avgLatencyMap(peerAvgLatency, maxLatency),
 		peerConnectionsGraph(connectionList, peerList),
 	)
 	f, err := os.Create("stats.html")
