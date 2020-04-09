@@ -16,17 +16,31 @@ const (
 
 // struct reperesenting the peer
 type Peer struct {
-	Addr    string `json:"Addr"`
-	Cid     string `json:"Cid"`
-	Latency string `json:"Latency"`
-	Nation  string `json:"Nation"`
-	City    string `json:"City"`
+	Addr    string  `json:"Addr"`
+	Cid     string  `json:"Cid"`
+	Latency string  `json:"Latency"`
+	Nation  string  `json:"Nation"`
+	City    string  `json:"City"`
+	Lat     float32 `json:"Lat"`
+	Lon     float32 `json:"Lon"`
 }
 
 // struct representing a connection data in a specific time
 type Connection struct {
 	Timestamp string   `json:"timestamp"`
 	CidList   []string `json:"cidList"`
+}
+
+// struct representing the recursion list of the command dht query in a specific moment
+type DhtQueryLog struct {
+	Timestamp        string                  `json:"timestamp"`
+	StartingCid      string                  `json:"startingCid"`
+	DhtRecursionList []DhtQueryRecursionElem `json:"dhtRecursionList"`
+}
+
+type DhtQueryRecursionElem struct {
+	Peer     Peer   `json:"peer"`
+	PeerList []Peer `json:"peerList"`
 }
 
 // logger

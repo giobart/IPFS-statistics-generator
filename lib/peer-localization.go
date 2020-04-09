@@ -43,8 +43,12 @@ func (p *PeerGeolocation) SetPeerCity(peer *Peer) {
 		if err != nil {
 			log.Error(err)
 		} else {
-			peer.Nation = results.Country_long
-			peer.City = results.City
+			if results.Country_long != "-" {
+				peer.Nation = results.Country_long
+				peer.City = results.City
+				peer.Lat = results.Latitude
+				peer.Lon = results.Longitude
+			}
 		}
 	}
 

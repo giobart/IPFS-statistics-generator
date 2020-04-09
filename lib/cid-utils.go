@@ -5,10 +5,6 @@ import (
 	"math"
 )
 
-func GetCid() string {
-	return ""
-}
-
 /* given a peerId and a bucket number "i" this function generate a cid that belongs
 to the i-th bucket for the given peer*/
 func BucketPrefixBuilder(peerid string, distance int) (string, error) {

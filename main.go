@@ -98,6 +98,8 @@ func main() {
 	lib.SetGraphDb(database)
 	go lib.GraphsServe(":8081")
 
+	_ = lib.GetDhtQueryRecursionList(lib.GetMyCid(), peerGolocalization)
+
 	// await for sigint or sigtem to stop application from pulling statistics
 	select {
 	//case keyboard interrupt
