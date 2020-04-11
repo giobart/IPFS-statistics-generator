@@ -35,6 +35,7 @@ type Connection struct {
 type DhtQueryLog struct {
 	Timestamp        string                  `json:"timestamp"`
 	StartingCid      string                  `json:"startingCid"`
+	BucketId         int                     `json:"BucketId"`
 	DhtRecursionList []DhtQueryRecursionElem `json:"dhtRecursionList"`
 }
 

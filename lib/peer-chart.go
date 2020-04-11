@@ -115,11 +115,55 @@ func peerConnectionsGraph(connections Connections, peers map[string]Peer) *chart
 	return kline
 }
 
+func graphRecursionDhtQuery(cid string, queryLog DhtQueryLog, peers map[string]Peer, id int) *charts.Graph {
+	graph := charts.NewGraph()
+	graph.SetGlobalOptions(charts.TitleOpts{Title: "Dht Query Recursion Graph"})
+
+	nodes := make([]charts.GraphNode, 0)
+	links := make([]charts.GraphLink, 0)
+
+	//generating nodes
+	for _, n1 := range peers {
+		node := charts.GraphNode{
+			Name: n1.Cid,
+			Y:    n1.Lat + 180,
+			X:    n1.Lon + 180,
+		}
+		nodes = append(nodes, node)
+	}
+
+	//generating links
+	for _, n1 := range queryLog.DhtRecursionList {
+		for _, link := range n1.PeerList {
+			graphlink := charts.GraphLink{
+				Source: n1.Peer.Cid,
+				Target: link.Cid,
+				Value:  1,
+			}
+			links = append(links, graphlink)
+		}
+	}
+
+	graph.SetGlobalOptions(charts.TitleOpts{
+		Title:         "Recursion graph for bucket: " + strconv.Itoa(id),
+		TitleStyle:    charts.TextStyleOpts{},
+		Subtitle:      "Starting Cid: " + cid,
+		SubtitleStyle: charts.TextStyleOpts{},
+	})
+	graph.Add("Recursion graph for bucket: "+strconv.Itoa(id), nodes, links,
+		charts.GraphOpts{Layout: "none", FocusNodeAdjacency: true, Roam: true},
+		charts.EmphasisOpts{Label: charts.LabelTextOpts{Show: false, Position: "left", Color: "black"}},
+		charts.LineStyleOpts{Curveness: 0.3},
+	)
+
+	return graph
+}
+
 func SetGraphDb(db Database) {
 	database = db
 }
 
-func pieHandler(w http.ResponseWriter, _ *http.Request) {
+func peerHandler(w http.ResponseWriter, _ *http.Request) {
 
 	log.Info("Extracting peers from DB")
 	list := database.dbReadAll("peers")
@@ -224,7 +268,48 @@ func pieHandler(w http.ResponseWriter, _ *http.Request) {
 	_ = page.Render(w, f)
 }
 
+func worldGraphHandler(w http.ResponseWriter, _ *http.Request) {
+
+	queryLogResults := database.dbReadAll("dhtQueryLog")
+	var queryBuckets [256]DhtQueryLog
+	peersMap := make([]map[string]Peer, 256)
+
+	//parsing db entry
+	for _, el := range queryLogResults {
+		queryElem := DhtQueryLog{}
+		if err := mapstructure.Decode(el, &queryElem); err != nil {
+			log.Error(err)
+		} else {
+			//parsing query bucket
+			queryBuckets[queryElem.BucketId] = queryElem
+			peersMap[queryElem.BucketId] = make(map[string]Peer)
+			//adding involved peers to peer map
+			for _, p := range queryElem.DhtRecursionList {
+				peersMap[queryElem.BucketId][p.Peer.Cid] = p.Peer
+				for _, p2 := range p.PeerList {
+					peersMap[queryElem.BucketId][p2.Cid] = p2
+				}
+			}
+		}
+	}
+
+	//generate graph in the page
+	page := charts.NewPage()
+	for i, bucket := range queryBuckets {
+		if bucket.StartingCid != "" {
+			page.Add(graphRecursionDhtQuery(GetMyCid(), bucket, peersMap[i], i))
+		}
+	}
+
+	f, err := os.Create("recursion.html")
+	if err != nil {
+		log.Error(err)
+	}
+	page.Render(w, f)
+}
+
 func GraphsServe(port string) {
-	http.HandleFunc("/", pieHandler)
+	http.HandleFunc("/stats", peerHandler)
+	http.HandleFunc("/worldGraph", worldGraphHandler)
 	http.ListenAndServe(port, nil)
 }
