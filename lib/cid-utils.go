@@ -88,7 +88,7 @@ func GenerateBucketQuery(iterations int, startingCid string) ([256]string, error
 		newHash := sha256.Sum256(newCid.Bytes())
 
 		//measure XOR bucket distance
-		dist := 256 - prefixLen(u.XOR(originalHash[:], newHash[:]))
+		dist := 255 - prefixLen(u.XOR(originalHash[:], newHash[:]))
 
 		//if this is a new cid, set it to the bucket
 		if result[dist] == "" {

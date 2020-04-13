@@ -125,19 +125,35 @@ func graphRecursionDhtQuery(cid string, queryLog DhtQueryLog, peers map[string]P
 	//generating nodes
 	for _, n1 := range peers {
 		node := charts.GraphNode{
-			Name: n1.Cid,
-			Y:    n1.Lat + 180,
-			X:    n1.Lon + 180,
+			Name: n1.Nation + "-" + n1.City + "-" + n1.Cid,
+			Y:    360 - (n1.Lat + 180),
+			X:    (n1.Lon + 180),
 		}
 		nodes = append(nodes, node)
 	}
+	nodes = append(nodes, charts.GraphNode{
+		Name:       "This Node",
+		X:          180,
+		Y:          160,
+		SymbolSize: 20,
+		ItemStyle:  charts.ItemStyleOpts{Color: "Blue"},
+	})
 
 	//generating links
-	for _, n1 := range queryLog.DhtRecursionList {
+	for i, n1 := range queryLog.DhtRecursionList {
+		//connection with first 3 query nodes
+		if i <= 2 {
+			graphlink := charts.GraphLink{
+				Source: "This Node",
+				Target: n1.Peer.Nation + "-" + n1.Peer.City + "-" + n1.Peer.Cid,
+				Value:  1,
+			}
+			links = append(links, graphlink)
+		}
 		for _, link := range n1.PeerList {
 			graphlink := charts.GraphLink{
-				Source: n1.Peer.Cid,
-				Target: link.Cid,
+				Source: n1.Peer.Nation + "-" + n1.Peer.City + "-" + n1.Peer.Cid,
+				Target: link.Nation + "-" + link.City + "-" + link.Cid,
 				Value:  1,
 			}
 			links = append(links, graphlink)
