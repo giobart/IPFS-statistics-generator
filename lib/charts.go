@@ -37,6 +37,7 @@ func (c Connections) Swap(i, j int) {
 	c[i], c[j] = c[j], c[i]
 }
 
+/* Pie graph of the  peer nations */
 func peerNationPie(peerMap map[string]interface{}, totPeer string) *charts.Pie {
 
 	pie := charts.NewPie()
@@ -50,6 +51,7 @@ func peerNationPie(peerMap map[string]interface{}, totPeer string) *charts.Pie {
 	return pie
 }
 
+/* Map of the peers in the globe */
 func peerNationMap(peerMap map[string]float32, maxPeer float32) *charts.Map {
 	mc := charts.NewMap("world")
 	mc.SetGlobalOptions(
@@ -60,6 +62,7 @@ func peerNationMap(peerMap map[string]float32, maxPeer float32) *charts.Map {
 	return mc
 }
 
+/* Average peer latency around the world */
 func avgLatencyMap(peerLatencyMap map[string]float32, maxPeer float32) *charts.Map {
 
 	mc := charts.NewMap("world")
@@ -72,6 +75,7 @@ func avgLatencyMap(peerLatencyMap map[string]float32, maxPeer float32) *charts.M
 	return mc
 }
 
+/* Graph representing live connection numbers */
 func peerConnectionsGraph(connections Connections, peers map[string]Peer) *charts.Line {
 
 	//sort by date
@@ -115,6 +119,7 @@ func peerConnectionsGraph(connections Connections, peers map[string]Peer) *chart
 	return kline
 }
 
+/* Graph representing the node interconnection as a result of a dht query */
 func graphRecursionDhtQuery(cid string, queryLog DhtQueryLog, peers map[string]Peer, id int) *charts.Graph {
 	graph := charts.NewGraph()
 	graph.SetGlobalOptions(charts.TitleOpts{Title: "Dht Query Recursion Graph"})
@@ -179,6 +184,7 @@ func SetGraphDb(db Database) {
 	database = db
 }
 
+/* handler that prepare the data and build the /stats web page */
 func peerHandler(w http.ResponseWriter, _ *http.Request) {
 
 	log.Info("Extracting peers from DB")
@@ -284,6 +290,7 @@ func peerHandler(w http.ResponseWriter, _ *http.Request) {
 	_ = page.Render(w, f)
 }
 
+/* handler that prepare data and build the /worldGraph page */
 func worldGraphHandler(w http.ResponseWriter, _ *http.Request) {
 
 	queryLogResults := database.dbReadAll("dhtQueryLog")
