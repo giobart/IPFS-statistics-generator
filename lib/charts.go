@@ -123,6 +123,7 @@ func peerConnectionsGraph(connections Connections, peers map[string]Peer) *chart
 func graphRecursionDhtQuery(cid string, queryLog DhtQueryLog, peers map[string]Peer, id int) *charts.Graph {
 	graph := charts.NewGraph()
 	graph.SetGlobalOptions(charts.TitleOpts{Title: "Dht Query Recursion Graph"})
+	myCid := GetMyCid()
 
 	nodes := make([]charts.GraphNode, 0)
 	links := make([]charts.GraphLink, 0)
@@ -148,10 +149,11 @@ func graphRecursionDhtQuery(cid string, queryLog DhtQueryLog, peers map[string]P
 	for i, n1 := range queryLog.DhtRecursionList {
 		//connection with first 3 query nodes
 		if i <= 2 {
+			cidCompare(n1.Peer.Cid, cid)
 			graphlink := charts.GraphLink{
 				Source: "This Node",
 				Target: n1.Peer.Nation + "-" + n1.Peer.City + "-" + n1.Peer.Cid,
-				Value:  1,
+				Value:  float32(cidCompare(n1.Peer.Cid, myCid)),
 			}
 			links = append(links, graphlink)
 		}
@@ -159,7 +161,7 @@ func graphRecursionDhtQuery(cid string, queryLog DhtQueryLog, peers map[string]P
 			graphlink := charts.GraphLink{
 				Source: n1.Peer.Nation + "-" + n1.Peer.City + "-" + n1.Peer.Cid,
 				Target: link.Nation + "-" + link.City + "-" + link.Cid,
-				Value:  1,
+				Value:  float32(cidCompare(link.Cid, myCid)),
 			}
 			links = append(links, graphlink)
 		}
@@ -320,7 +322,7 @@ func worldGraphHandler(w http.ResponseWriter, _ *http.Request) {
 	page := charts.NewPage()
 	for i, bucket := range queryBuckets {
 		if bucket.StartingCid != "" {
-			page.Add(graphRecursionDhtQuery(GetMyCid(), bucket, peersMap[i], i))
+			page.Add(graphRecursionDhtQuery(bucket.StartingCid, bucket, peersMap[i], i))
 		}
 	}
 
