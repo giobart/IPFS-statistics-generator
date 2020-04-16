@@ -120,6 +120,7 @@ func peerConnectionsGraph(connections Connections, peers map[string]Peer) *chart
 }
 
 /* Graph representing the node interconnection as a result of a dht query */
+/* link value == distance between myCid and the initial query cid */
 func graphRecursionDhtQuery(cid string, queryLog DhtQueryLog, peers map[string]Peer, id int) *charts.Graph {
 	graph := charts.NewGraph()
 	graph.SetGlobalOptions(charts.TitleOpts{Title: "Dht Query Recursion Graph"})

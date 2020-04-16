@@ -1,1 +1,0 @@
-In this directory will be displayed all generated graphs

@@ -80,6 +80,7 @@ func GetMyCid() string {
 	return peerInfo["ID"].(string)
 }
 
+// perform the HTTP dht query command with a timeout of 10 seconds
 func DhtQuery(cid string) []map[string]interface{} {
 	//http request to ipfs api
 	url := ipfsDhtQueryHttpUrl + "?arg=" + cid
@@ -165,7 +166,7 @@ func GetDhtQueryRecursionList(cid string, geolocation PeerGeolocation) DhtQueryL
 	return QueryLog
 }
 
-// if we know this peer then fetch already obtained informations, otherwise, create it
+// if cid exists inside peerList then return his pointer, otherwise, create it and return the pointer to the new peer
 func addPeerToMap(cid string, peerList map[string]*Peer) *Peer {
 	sender := Peer{Cid: cid}
 	// if we know this peer then fetch already obtained informations, otherwise, create it
