@@ -26,7 +26,7 @@ var log = logging.MustGetLogger("go-ipfs-logger")
 var database = lib.Database{}
 
 // peer geolocalization class, used to set the peer location
-var peerGolocalization lib.PeerGeolocation
+var peerGolocation lib.PeerGeolocation
 
 /* Eevery n seconds -> pulls the statistics from the ipfs node. n="statisticsTicker" time */
 func pullStatistics(stop <-chan bool, done chan<- bool) {
@@ -62,7 +62,7 @@ func pullPeerStatistics() {
 			log.Info("[", id, "] - CID: [", peer.Cid, "] - Addr: [", peer.Addr, "] - Latency: [", peer.Latency, "]")
 
 			// setting peer location
-			peerGolocalization.SetPeerCity(&peer)
+			peerGolocation.SetPeerCity(&peer)
 
 			//storing peer info
 			database.DbWrite("peers", peer.Cid, peer)
@@ -98,7 +98,7 @@ func pullDhtRecursionBucket() {
 		if bucket != "" {
 			go func(i int, cid string) {
 				//Query to the dht
-				queryLog := lib.GetDhtQueryRecursionList(cid, peerGolocalization)
+				queryLog := lib.GetDhtQueryRecursionList(cid, peerGolocation)
 				key := "bucket-" + strconv.Itoa(i)
 				queryLog.BucketId = i
 				//saving recursion to the db
@@ -118,7 +118,7 @@ func main() {
 	// channel used to understand that function ended
 	var done = make(chan bool)
 
-	err := peerGolocalization.Init(ip42locdb, ip6dbloc)
+	err := peerGolocation.Init(ip42locdb, ip6dbloc)
 	if err != nil {
 		log.Error("No localization db connected")
 		panic(1)
